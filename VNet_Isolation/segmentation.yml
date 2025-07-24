@@ -1,0 +1,16 @@
+Production VNet:
+  - Name: prod-vnet-001
+  - Address Space: 10.1.0.0/16
+  - Subnets:
+    - prod-web-subnet: 10.1.1.0/24
+    - prod-app-subnet: 10.1.2.0/24
+    - prod-db-subnet: 10.1.3.0/24
+    - prod-mgmt-subnet: 10.1.10.0/24
+
+Non-Production VNet:
+  - Name: nonprod-vnet-001
+  - Address Space: 10.2.0.0/16
+  - Subnets:
+    - dev-subnet: 10.2.1.0/24
+    - test-subnet: 10.2.2.0/24
+    - staging-subnet: 10.2.3.0/24

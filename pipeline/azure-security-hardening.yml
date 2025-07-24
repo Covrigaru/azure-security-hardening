@@ -1,0 +1,806 @@
+# GitHub Actions Pipeline for Azure Security Hardening
+# File: .github/workflows/azure-security-hardening.yml
+
+name: Azure Security Hardening Deployment
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'infrastructure/**'
+      - 'security/**'
+      - 'scripts/**'
+      - '.github/workflows/**'
+  
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'infrastructure/**'
+      - 'security/**'
+      - 'scripts/**'
+  
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target Environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      
+      skip_validation:
+        description: 'Skip validation steps'
+        required: false
+        default: false
+        type: boolean
+      
+      deploy_phase:
+        description: 'Deployment Phase'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - network-foundation
+          - security-controls
+          - monitoring
+          - governance
+
+env:
+  # Global Environment Variables
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  
+  # Resource Configuration
+  LOCATION: 'eastus'
+  HUB_RESOURCE_GROUP: 'hub-network-rg'
+  PROD_RESOURCE_GROUP: 'prod-network-rg'
+  NONPROD_RESOURCE_GROUP: 'nonprod-network-rg'
+  SECURITY_RESOURCE_GROUP: 'security-rg'
+  
+  # Network Configuration
+  HUB_VNET_NAME: 'hub-vnet-001'
+  PROD_VNET_NAME: 'prod-vnet-001'
+  NONPROD_VNET_NAME: 'nonprod-vnet-001'
+  
+  # Security Configuration
+  FIREWALL_NAME: 'hub-firewall-001'
+  BASTION_NAME: 'prod-bastion'
+  DDOS_PROTECTION_PLAN: 'prod-ddos-plan'
+
+jobs:
+  # ===========================================================================
+  # JOB: PRE-DEPLOYMENT VALIDATION
+  # ===========================================================================
+  validation:
+    name: 'Pre-deployment Validation'
+    runs-on: ubuntu-latest
+    if: github.event.inputs.skip_validation != 'true'
+    
+    outputs:
+      validation-status: ${{ steps.validate.outputs.status }}
+      templates-valid: ${{ steps.template-validation.outputs.valid }}
+    
+    steps:
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: 'Setup Azure CLI'
+        uses: azure/login@v1
+        with:
+          creds: |
+            {
+              "clientId": "${{ env.AZURE_CLIENT_ID }}",
+              "clientSecret": "${{ env.AZURE_CLIENT_SECRET }}",
+              "subscriptionId": "${{ env.AZURE_SUBSCRIPTION_ID }}",
+              "tenantId": "${{ env.AZURE_TENANT_ID }}"
+            }
+      
+      - name: 'Validate Azure Connection'
+        id: validate
+        run: |
+          echo "Validating Azure connection..."
+          az account show
+          az account set --subscription ${{ env.AZURE_SUBSCRIPTION_ID }}
+          
+          echo "Checking required providers..."
+          az provider register --namespace Microsoft.Network --wait
+          az provider register --namespace Microsoft.Security --wait
+          az provider register --namespace Microsoft.OperationalInsights --wait
+          az provider register --namespace Microsoft.Insights --wait
+          
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "✅ Azure connection validated successfully"
+      
+      - name: 'Validate ARM Templates'
+        id: template-validation
+        run: |
+          echo "Validating ARM templates..."
+          
+          # Validate network foundation template if exists
+          if [ -f "arm-templates/network-foundation.json" ]; then
+            az deployment sub validate \
+              --location ${{ env.LOCATION }} \
+              --template-file arm-templates/network-foundation.json \
+              --parameters location=${{ env.LOCATION }}
+          fi
+          
+          # Validate security controls template if exists
+          if [ -f "arm-templates/security-controls.json" ]; then
+            az deployment sub validate \
+              --location ${{ env.LOCATION }} \
+              --template-file arm-templates/security-controls.json \
+              --parameters location=${{ env.LOCATION }}
+          fi
+          
+          echo "valid=true" >> $GITHUB_OUTPUT
+          echo "✅ ARM template validation completed"
+      
+      - name: 'Validate Scripts'
+        run: |
+          echo "Validating shell scripts..."
+          
+          # Check script syntax
+          for script in scripts/*.sh; do
+            if [ -f "$script" ]; then
+              echo "Validating $script..."
+              bash -n "$script"
+            fi
+          done
+          
+          # Make scripts executable
+          chmod +x scripts/*.sh
+          
+          echo "✅ Script validation completed"
+      
+      - name: 'Security Scan'
+        uses: github/super-linter@v4
+        env:
+          DEFAULT_BRANCH: main
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_ALL_CODEBASE: false
+          VALIDATE_BASH: true
+          VALIDATE_JSON: true
+          VALIDATE_YAML: true
+
+  # ===========================================================================
+  # JOB: NETWORK FOUNDATION DEPLOYMENT
+  # ===========================================================================
+  network-foundation:
+    name: 'Phase 1: Network Foundation'
+    runs-on: ubuntu-latest
+    needs: [validation]
+    if: |
+      always() && 
+      (needs.validation.result == 'success' || needs.validation.result == 'skipped') &&
+      (github.event.inputs.deploy_phase == 'all' || github.event.inputs.deploy_phase == 'network-foundation')
+    
+    environment: 
+      name: ${{ github.event.inputs.environment || 'staging' }}
+    
+    steps:
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v4
+      
+      - name: 'Setup Azure CLI'
+        uses: azure/login@v1
+        with:
+          creds: |
+            {
+              "clientId": "${{ env.AZURE_CLIENT_ID }}",
+              "clientSecret": "${{ env.AZURE_CLIENT_SECRET }}",
+              "subscriptionId": "${{ env.AZURE_SUBSCRIPTION_ID }}",
+              "tenantId": "${{ env.AZURE_TENANT_ID }}"
+            }
+      
+      - name: 'Create Resource Groups'
+        run: |
+          echo "🏗️ Creating resource groups..."
+          ./scripts/01-create-resource-groups.sh \
+            "${{ env.LOCATION }}" \
+            "${{ env.HUB_RESOURCE_GROUP }}" \
+            "${{ env.PROD_RESOURCE_GROUP }}" \
+            "${{ env.NONPROD_RESOURCE_GROUP }}" \
+            "${{ env.SECURITY_RESOURCE_GROUP }}"
+      
+      - name: 'Deploy Hub VNet'
+        run: |
+          echo "🌐 Deploying Hub VNet..."
+          ./scripts/02-deploy-hub-vnet.sh \
+            "${{ env.HUB_RESOURCE_GROUP }}" \
+            "${{ env.HUB_VNET_NAME }}" \
+            "${{ env.LOCATION }}"
+      
+      - name: 'Deploy Production VNet'
+        run: |
+          echo "🌐 Deploying Production VNet..."
+          ./scripts/03-deploy-prod-vnet.sh \
+            "${{ env.PROD_RESOURCE_GROUP }}" \
+            "${{ env.PROD_VNET_NAME }}" \
+            "${{ env.LOCATION }}"
+      
+      - name: 'Deploy Non-Production VNet'
+        run: |
+          echo "🌐 Deploying Non-Production VNet..."
+          ./scripts/04-deploy-nonprod-vnet.sh \
+            "${{ env.NONPROD_RESOURCE_GROUP }}" \
+            "${{ env.NONPROD_VNET_NAME }}" \
+            "${{ env.LOCATION }}"
+      
+      - name: 'Configure Network Security Groups'
+        run: |
+          echo "🔒 Configuring Network Security Groups..."
+          ./scripts/05-configure-nsgs.sh \
+            "${{ env.PROD_RESOURCE_GROUP }}" \
+            "${{ env.NONPROD_RESOURCE_GROUP }}"
+      
+      - name: 'Configure VNet Peering'
+        run: |
+          echo "🔗 Configuring VNet Peering..."
+          ./scripts/06-configure-vnet-peering.sh \
+            "${{ env.HUB_RESOURCE_GROUP }}" \
+            "${{ env.PROD_RESOURCE_GROUP }}" \
+            "${{ env.NONPROD_RESOURCE_GROUP }}"
+      
+      - name: 'Verify Network Deployment'
+        run: |
+          echo "✅ Verifying network deployment..."
+          
+          # Check VNets
+          az network vnet list --output table
+          
+          # Check NSGs
+          az network nsg list --output table
+          
+          # Check peering status
+          az network vnet peering list \
+            --resource-group "${{ env.HUB_RESOURCE_GROUP }}" \
+            --vnet-name "${{ env.HUB_VNET_NAME }}" \
+            --output table
+
+  # ===========================================================================
+  # JOB: SECURITY CONTROLS DEPLOYMENT
+  # ===========================================================================
+  security-controls:
+    name: 'Phase 2: Security Controls'
+    runs-on: ubuntu-latest
+    needs: [network-foundation]
+    if: |
+      always() && 
+      needs.network-foundation.result == 'success' &&
+      (github.event.inputs.deploy_phase == 'all' || github.event.inputs.deploy_phase == 'security-controls')
+    
+    environment: 
+      name: ${{ github.event.inputs.environment || 'staging' }}
+    
+    steps:
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v4
+      
+      - name: 'Setup Azure CLI'
+        uses: azure/login@v1
+        with:
+          creds: |
+            {
+              "clientId": "${{ env.AZURE_CLIENT_ID }}",
+              "clientSecret": "${{ env.AZURE_CLIENT_SECRET }}",
+              "subscriptionId": "${{ env.AZURE_SUBSCRIPTION_ID }}",
+              "tenantId": "${{ env.AZURE_TENANT_ID }}"
+            }
+      
+      - name: 'Deploy Azure Firewall'
+        run: |
+          echo "🛡️ Deploying Azure Firewall..."
+          ./scripts/07-deploy-azure-firewall.sh \
+            "${{ env.HUB_RESOURCE_GROUP }}" \
+            "${{ env.FIREWALL_NAME }}" \
+            "${{ env.LOCATION }}"
+      
+      - name: 'Configure Firewall Rules'
+        run: |
+          echo "🔥 Configuring Firewall Rules..."
+          ./scripts/08-configure-firewall-rules.sh \
+            "${{ env.HUB_RESOURCE_GROUP }}" \
+            "${{ env.FIREWALL_NAME }}"
+      
+      - name: 'Deploy Azure Bastion'
+        run: |
+          echo "🏰 Deploying Azure Bastion..."
+          ./scripts/09-deploy-azure-bastion.sh \
+            "${{ env.PROD_RESOURCE_GROUP }}" \
+            "${{ env.BASTION_NAME }}" \
+            "${{ env.PROD_VNET_NAME }}" \
+            "${{ env.LOCATION }}"
+      
+      - name: 'Enable DDoS Protection'
+        run: |
+          echo "🛡️ Enabling DDoS Protection..."
+          ./scripts/10-enable-ddos-protection.sh \
+            "${{ env.SECURITY_RESOURCE_GROUP }}" \
+            "${{ env.DDOS_PROTECTION_PLAN }}" \
+            "${{ env.LOCATION }}"
+      
+      - name: 'Configure Private Endpoints'
+        run: |
+          echo "🔐 Configuring Private Endpoints..."
+          ./scripts/11-configure-private-endpoints.sh \
+            "${{ env.PROD_RESOURCE_GROUP }}" \
+            "${{ env.PROD_VNET_NAME }}"
+      
+      - name: 'Deploy Web Application Firewall'
+        run: |
+          echo "🌐 Deploying Web Application Firewall..."
+          ./scripts/12-deploy-waf.sh \
+            "${{ env.PROD_RESOURCE_GROUP }}" \
+            "${{ env.LOCATION }}"
+      
+      - name: 'Verify Security Controls'
+        run: |
+          echo "✅ Verifying security controls deployment..."
+          
+          # Check Azure Firewall
+          az network firewall show \
+            --name "${{ env.FIREWALL_NAME }}" \
+            --resource-group "${{ env.HUB_RESOURCE_GROUP }}" \
+            --output table
+          
+          # Check Bastion
+          az network bastion show \
+            --name "${{ env.BASTION_NAME }}" \
+            --resource-group "${{ env.PROD_RESOURCE_GROUP }}" \
+            --output table
+          
+          # Check DDoS Protection
+          az network ddos-protection show \
+            --name "${{ env.DDOS_PROTECTION_PLAN }}" \
+            --resource-group "${{ env.SECURITY_RESOURCE_GROUP }}" \
+            --output table
+
+  # ===========================================================================
+  # JOB: MONITORING & COMPLIANCE DEPLOYMENT
+  # ===========================================================================
+  monitoring-compliance:
+    name: 'Phase 3: Monitoring & Compliance'
+    runs-on: ubuntu-latest
+    needs: [security-controls]
+    if: |
+      always() && 
+      needs.security-controls.result == 'success' &&
+      (github.event.inputs.deploy_phase == 'all' || github.event.inputs.deploy_phase == 'monitoring')
+    
+    environment: 
+      name: ${{ github.event.inputs.environment || 'staging' }}
+    
+    steps:
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v4
+      
+      - name: 'Setup Azure CLI'
+        uses: azure/login@v1
+        with:
+          creds: |
+            {
+              "clientId": "${{ env.AZURE_CLIENT_ID }}",
+              "clientSecret": "${{ env.AZURE_CLIENT_SECRET }}",
+              "subscriptionId": "${{ env.AZURE_SUBSCRIPTION_ID }}",
+              "tenantId": "${{ env.AZURE_TENANT_ID }}"
+            }
+      
+      - name: 'Deploy Log Analytics Workspace'
+        run: |
+          echo "📊 Deploying Log Analytics Workspace..."
+          ./scripts/13-deploy-log-analytics.sh \
+            "${{ env.SECURITY_RESOURCE_GROUP }}" \
+            "${{ env.LOCATION }}"
+      
+      - name: 'Enable Network Watcher'
+        run: |
+          echo "👁️ Enabling Network Watcher..."
+          ./scripts/14-enable-network-watcher.sh \
+            "${{ env.LOCATION }}"
+      
+      - name: 'Configure NSG Flow Logs'
+        run: |
+          echo "📝 Configuring NSG Flow Logs..."
+          ./scripts/15-configure-nsg-flow-logs.sh \
+            "${{ env.SECURITY_RESOURCE_GROUP }}" \
+            "${{ env.PROD_RESOURCE_GROUP }}" \
+            "${{ env.NONPROD_RESOURCE_GROUP }}"
+      
+      - name: 'Deploy Azure Sentinel'
+        run: |
+          echo "🛡️ Deploying Azure Sentinel..."
+          ./scripts/16-deploy-azure-sentinel.sh \
+            "${{ env.SECURITY_RESOURCE_GROUP }}"
+      
+      - name: 'Configure Security Alerts'
+        run: |
+          echo "🚨 Configuring Security Alerts..."
+          ./scripts/17-configure-security-alerts.sh \
+            "${{ env.SECURITY_RESOURCE_GROUP }}"
+      
+      - name: 'Verify Monitoring Setup'
+        run: |
+          echo "✅ Verifying monitoring setup..."
+          
+          # Check Log Analytics Workspace
+          az monitor log-analytics workspace list \
+            --resource-group "${{ env.SECURITY_RESOURCE_GROUP }}" \
+            --output table
+          
+          # Check Network Watcher
+          az network watcher list --output table
+
+  # ===========================================================================
+  # JOB: GOVERNANCE DEPLOYMENT
+  # ===========================================================================
+  governance:
+    name: 'Phase 4: Governance'
+    runs-on: ubuntu-latest
+    needs: [monitoring-compliance]
+    if: |
+      always() && 
+      needs.monitoring-compliance.result == 'success' &&
+      (github.event.inputs.deploy_phase == 'all' || github.event.inputs.deploy_phase == 'governance')
+    
+    environment: 
+      name: ${{ github.event.inputs.environment || 'staging' }}
+    
+    steps:
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v4
+      
+      - name: 'Setup Azure CLI'
+        uses: azure/login@v1
+        with:
+          creds: |
+            {
+              "clientId": "${{ env.AZURE_CLIENT_ID }}",
+              "clientSecret": "${{ env.AZURE_CLIENT_SECRET }}",
+              "subscriptionId": "${{ env.AZURE_SUBSCRIPTION_ID }}",
+              "tenantId": "${{ env.AZURE_TENANT_ID }}"
+            }
+      
+      - name: 'Deploy Azure Policies'
+        run: |
+          echo "📋 Deploying Azure Policies..."
+          ./scripts/18-deploy-azure-policies.sh \
+            "${{ env.AZURE_SUBSCRIPTION_ID }}"
+      
+      - name: 'Configure JIT Access'
+        run: |
+          echo "🔐 Configuring Just-In-Time Access..."
+          ./scripts/19-configure-jit-access.sh \
+            "${{ env.PROD_RESOURCE_GROUP }}" \
+            "${{ env.NONPROD_RESOURCE_GROUP }}"
+      
+      - name: 'Apply Resource Tags'
+        run: |
+          echo "🏷️ Applying Resource Tags..."
+          ./scripts/20-apply-resource-tags.sh \
+            "${{ env.AZURE_SUBSCRIPTION_ID }}"
+      
+      - name: 'Configure Compliance Scanning'
+        run: |
+          echo "🔍 Configuring Compliance Scanning..."
+          ./scripts/21-configure-compliance-scanning.sh \
+            "${{ env.AZURE_SUBSCRIPTION_ID }}"
+      
+      - name: 'Verify Governance Setup'
+        run: |
+          echo "✅ Verifying governance setup..."
+          
+          # Check Azure Policies
+          az policy assignment list --output table
+          
+          # Check resource tags
+          az resource list --query "[?tags.Environment!=null]" --output table
+
+  # ===========================================================================
+  # JOB: POST-DEPLOYMENT VERIFICATION
+  # ===========================================================================
+  post-deployment-verification:
+    name: 'Post-Deployment Verification'
+    runs-on: ubuntu-latest
+    needs: [governance]
+    if: always() && needs.governance.result == 'success'
+    
+    steps:
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v4
+      
+      - name: 'Setup Azure CLI'
+        uses: azure/login@v1
+        with:
+          creds: |
+            {
+              "clientId": "${{ env.AZURE_CLIENT_ID }}",
+              "clientSecret": "${{ env.AZURE_CLIENT_SECRET }}",
+              "subscriptionId": "${{ env.AZURE_SUBSCRIPTION_ID }}",
+              "tenantId": "${{ env.AZURE_TENANT_ID }}"
+            }
+      
+      - name: 'Run Security Assessment'
+        run: |
+          echo "🔍 Running security assessment..."
+          
+          # Check Security Center recommendations
+          az security assessment list --output table
+          
+          # Check NSG effective rules
+          echo "Checking NSG effective rules..."
+          az network nic list-effective-nsg \
+            --ids $(az vm list --query "[0].networkProfile.networkInterfaces[0].id" --output tsv) \
+            --output table || echo "No VMs found for NSG validation"
+      
+      - name: 'Generate Deployment Report'
+        run: |
+          echo "📄 Generating deployment report..."
+          
+          # Create deployment summary
+          cat > deployment-report.md << EOF
+          # Azure Security Hardening Deployment Report
+          
+          **Deployment Date**: $(date)
+          **Environment**: ${{ github.event.inputs.environment || 'staging' }}
+          **Git Commit**: ${{ github.sha }}
+          **Deployed By**: ${{ github.actor }}
+          
+          ## Deployment Summary
+          
+          ### Network Foundation
+          - Hub VNet: ${{ env.HUB_VNET_NAME }}
+          - Production VNet: ${{ env.PROD_VNET_NAME }}
+          - Non-Production VNet: ${{ env.NONPROD_VNET_NAME }}
+          
+          ### Security Controls
+          - Azure Firewall: ${{ env.FIREWALL_NAME }}
+          - Azure Bastion: ${{ env.BASTION_NAME }}
+          - DDoS Protection: ${{ env.DDOS_PROTECTION_PLAN }}
+          
+          ### Resource Groups
+          - Hub: ${{ env.HUB_RESOURCE_GROUP }}
+          - Production: ${{ env.PROD_RESOURCE_GROUP }}
+          - Non-Production: ${{ env.NONPROD_RESOURCE_GROUP }}
+          - Security: ${{ env.SECURITY_RESOURCE_GROUP }}
+          
+          ## Next Steps
+          1. Review security recommendations in Azure Security Center
+          2. Configure application-specific firewall rules
+          3. Set up monitoring dashboards
+          4. Test connectivity and access controls
+          EOF
+          
+          cat deployment-report.md
+      
+      - name: 'Upload Deployment Report'
+        uses: actions/upload-artifact@v3
+        with:
+          name: deployment-report-${{ github.run_number }}
+          path: deployment-report.md
+          retention-days: 30
+      
+      - name: 'Create GitHub Release'
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.run_number }}
+          release_name: Azure Security Hardening v${{ github.run_number }}
+          body_path: deployment-report.md
+          draft: false
+          prerelease: false
+
+  # ===========================================================================
+  # JOB: CLEANUP ON FAILURE
+  # ===========================================================================
+  cleanup-on-failure:
+    name: 'Cleanup on Failure'
+    runs-on: ubuntu-latest
+    needs: [network-foundation, security-controls, monitoring-compliance, governance]
+    if: |
+      always() && 
+      (needs.network-foundation.result == 'failure' || 
+       needs.security-controls.result == 'failure' || 
+       needs.monitoring-compliance.result == 'failure' || 
+       needs.governance.result == 'failure') &&
+      github.event.inputs.environment != 'production'
+    
+    steps:
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v4
+      
+      - name: 'Setup Azure CLI'
+        uses: azure/login@v1
+        with:
+          creds: |
+            {
+              "clientId": "${{ env.AZURE_CLIENT_ID }}",
+              "clientSecret": "${{ env.AZURE_CLIENT_SECRET }}",
+              "subscriptionId": "${{ env.AZURE_SUBSCRIPTION_ID }}",
+              "tenantId": "${{ env.AZURE_TENANT_ID }}"
+            }
+      
+      - name: 'Cleanup Failed Resources'
+        run: |
+          echo "🧹 Cleaning up failed deployment resources..."
+          
+          # Only cleanup non-production environments
+          if [ "${{ github.event.inputs.environment }}" != "production" ]; then
+            echo "Cleaning up development/staging resources..."
+            
+            # Delete resource groups if they exist and are empty or contain only failed resources
+            for rg in "${{ env.HUB_RESOURCE_GROUP }}" "${{ env.PROD_RESOURCE_GROUP }}" "${{ env.NONPROD_RESOURCE_GROUP }}" "${{ env.SECURITY_RESOURCE_GROUP }}"; do
+              if az group exists --name "$rg"; then
+                echo "Checking resource group: $rg"
+                resource_count=$(az resource list --resource-group "$rg" --query "length(@)")
+                if [ "$resource_count" -eq 0 ]; then
+                  echo "Deleting empty resource group: $rg"
+                  az group delete --name "$rg" --yes --no-wait
+                else
+                  echo "Resource group $rg contains $resource_count resources, skipping deletion"
+                fi
+              fi
+            done
+          else
+            echo "Skipping cleanup for production environment"
+          fi
+      
+      - name: 'Notify on Failure'
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          channel: '#devops-alerts'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          message: |
+            🚨 Azure Security Hardening Deployment Failed
+            
+            **Repository**: ${{ github.repository }}
+            **Branch**: ${{ github.ref }}
+            **Commit**: ${{ github.sha }}
+            **Actor**: ${{ github.actor }}
+            **Environment**: ${{ github.event.inputs.environment || 'staging' }}
+            
+            Please check the workflow logs for details.
+
+# ===========================================================================
+# ADDITIONAL WORKFLOW FILES
+# ===========================================================================
+
+---
+# File: .github/workflows/security-scan.yml
+name: Security Scan
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM
+  workflow_dispatch:
+
+jobs:
+  security-scan:
+    name: 'Daily Security Scan'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v4
+      
+      - name: 'Setup Azure CLI'
+        uses: azure/login@v1
+        with:
+          creds: |
+            {
+              "clientId": "${{ secrets.AZURE_CLIENT_ID }}",
+              "clientSecret": "${{ secrets.AZURE_CLIENT_SECRET }}",
+              "subscriptionId": "${{ secrets.AZURE_SUBSCRIPTION_ID }}",
+              "tenantId": "${{ secrets.AZURE_TENANT_ID }}"
+            }
+      
+      - name: 'Run Security Assessment'
+        run: |
+          echo "Running Azure Security Center assessment..."
+          az security assessment list --output json > security-assessment.json
+          
+          # Check for high severity issues
+          high_severity=$(jq '.[] | select(.status.code == "Unhealthy" and .resourceDetails.severity == "High")' security-assessment.json)
+          
+          if [ ! -z "$high_severity" ]; then
+            echo "⚠️ High severity security issues found!"
+            echo "$high_severity" | jq .
+            exit 1
+          else
+            echo "✅ No high severity security issues found"
+          fi
+
+---
+# File: .github/workflows/cost-optimization.yml
+name: Cost Optimization Check
+
+on:
+  schedule:
+    - cron: '0 8 * * 1'  # Weekly on Monday at 8 AM
+  workflow_dispatch:
+
+jobs:
+  cost-check:
+    name: 'Weekly Cost Check'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 'Setup Azure CLI'
+        uses: azure/login@v1
+        with:
+          creds: |
+            {
+              "clientId": "${{ secrets.AZURE_CLIENT_ID }}",
+              "clientSecret": "${{ secrets.AZURE_CLIENT_SECRET }}",
+              "subscriptionId": "${{ secrets.AZURE_SUBSCRIPTION_ID }}",
+              "tenantId": "${{ secrets.AZURE_TENANT_ID }}"
+            }
+      
+      - name: 'Check Resource Costs'
+        run: |
+          echo "Checking resource costs..."
+          
+          # Get cost for last 7 days
+          end_date=$(date +%Y-%m-%d)
+          start_date=$(date -d '7 days ago' +%Y-%m-%d)
+          
+          az consumption usage list \
+            --start-date $start_date \
+            --end-date $end_date \
+            --output table
+          
+          echo "Cost optimization recommendations will be available in future updates"
+
+---
+# File: .github/workflows/infrastructure-drift.yml
+name: Infrastructure Drift Detection
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 6 AM
+  workflow_dispatch:
+
+jobs:
+  drift-detection:
+    name: 'Infrastructure Drift Detection'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v4
+      
+      - name: 'Setup Azure CLI'
+        uses: azure/login@v1
+        with:
+          creds: |
+            {
+              "clientId": "${{ secrets.AZURE_CLIENT_ID }}",
+              "clientSecret": "${{ secrets.AZURE_CLIENT_SECRET }}",
+              "subscriptionId": "${{ secrets.AZURE_SUBSCRIPTION_ID }}",
+              "tenantId": "${{ secrets.AZURE_TENANT_ID }}"
+            }
+      
+      - name: 'Check Infrastructure Drift'
+        run: |
+          echo "Checking for infrastructure drift..."
+          
+          # Compare current resources with expected configuration
+          echo "This will be implemented with Terraform plan or ARM template what-if operations"
+          
+          # For now, just list current resources
+          az resource list --output table
+          
+          # Future: Compare with expected state and report differences

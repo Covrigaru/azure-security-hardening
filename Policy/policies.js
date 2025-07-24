@@ -1,0 +1,24 @@
+{
+    "if": {
+      "allOf": [
+        {
+          "field": "type",
+          "equals": "Microsoft.Compute/virtualMachines"
+        },
+        {
+          "field": "tags['Environment']",
+          "equals": "Production"
+        }
+      ]
+    },
+    "then": {
+      "effect": "deployIfNotExists",
+      "details": {
+        "type": "Microsoft.Compute/virtualMachines/extensions",
+        "existenceCondition": {
+          "field": "Microsoft.Compute/virtualMachines/extensions/type",
+          "equals": "MicrosoftMonitoringAgent"
+        }
+      }
+    }
+  }

@@ -1,0 +1,9 @@
+Hub-Spoke Architecture:
+  Hub VNet: 10.0.0.0/16
+    - AzureFirewallSubnet: 10.0.1.0/26
+    - GatewaySubnet: 10.0.2.0/27
+    - ManagementSubnet: 10.0.3.0/24
+  
+  Spokes:
+    - Production VNet: 10.1.0.0/16
+    - Non-Production VNet: 10.2.0.0/16

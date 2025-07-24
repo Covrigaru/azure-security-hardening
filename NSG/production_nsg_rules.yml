@@ -1,0 +1,39 @@
+Inbound Rules:
+  Priority 100: Deny All Internet Traffic
+    Source: Internet
+    Destination: Any
+    Action: Deny
+    
+  Priority 110: Allow Load Balancer
+    Source: AzureLoadBalancer
+    Destination: Any
+    Port: 80, 443
+    Action: Allow
+    
+  Priority 120: Allow Management from Jump Box
+    Source: 10.1.10.0/24 (mgmt subnet)
+    Destination: Any
+    Port: 22, 3389
+    Action: Allow
+    
+  Priority 4096: Deny All
+    Source: Any
+    Destination: Any
+    Action: Deny
+
+Outbound Rules:
+  Priority 100: Allow HTTPS to Internet
+    Source: Any
+    Destination: Internet
+    Port: 443
+    Action: Allow
+    
+  Priority 110: Allow Internal Communication
+    Source: 10.1.0.0/16
+    Destination: 10.1.0.0/16
+    Action: Allow
+    
+  Priority 4096: Deny All
+    Source: Any
+    Destination: Any
+    Action: Deny

@@ -1,0 +1,54 @@
+# Network Security Group Rules Configuration
+NetworkSecurityGroup:
+  InboundRules:
+    - Priority: 100
+      Name: "Deny All Internet Traffic"
+      Source: "Internet"
+      Destination: "Any"
+      Action: "Deny"
+      
+    - Priority: 110
+      Name: "Allow Load Balancer"
+      Source: "AzureLoadBalancer"
+      Destination: "Any"
+      Ports: 
+        - 80
+        - 443
+      Action: "Allow"
+      
+    - Priority: 120
+      Name: "Allow Management from Jump Box"
+      Source: "10.1.10.0/24"
+      SourceDescription: "mgmt subnet"
+      Destination: "Any"
+      Ports:
+        - 22
+        - 3389
+      Action: "Allow"
+      
+    - Priority: 4096
+      Name: "Deny All"
+      Source: "Any"
+      Destination: "Any"
+      Action: "Deny"
+
+  OutboundRules:
+    - Priority: 100
+      Name: "Allow HTTPS to Internet"
+      Source: "Any"
+      Destination: "Internet"
+      Ports:
+        - 443
+      Action: "Allow"
+      
+    - Priority: 110
+      Name: "Allow Internal Communication"
+      Source: "10.1.0.0/16"
+      Destination: "10.1.0.0/16"
+      Action: "Allow"
+      
+    - Priority: 4096
+      Name: "Deny All"
+      Source: "Any"
+      Destination: "Any"
+      Action: "Deny"

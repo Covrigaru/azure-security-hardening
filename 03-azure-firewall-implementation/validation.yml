@@ -1,0 +1,17 @@
+# Simple validation structure
+validation:
+  hub_vnet_cidr: "10.0.0.0/16"
+  spoke_vnets:
+    - production: "10.1.0.0/16"
+    - nonproduction: "10.2.0.0/16"
+  
+  subnet_validation:
+    - name: "AzureFirewallSubnet"
+      cidr: "10.0.1.0/26"
+      within_hub: true
+    - name: "GatewaySubnet"
+      cidr: "10.0.2.0/27"
+      within_hub: true
+    - name: "ManagementSubnet"
+      cidr: "10.0.3.0/24"
+      within_hub: true

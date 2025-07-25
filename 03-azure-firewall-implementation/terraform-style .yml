@@ -1,0 +1,32 @@
+# Network Configuration for Terraform
+network_config:
+  hub_vnet:
+    name: "hub-vnet"
+    address_space: ["10.0.0.0/16"]
+    location: "East US"
+    
+    subnets:
+      azure_firewall_subnet:
+        name: "AzureFirewallSubnet"
+        address_prefixes: ["10.0.1.0/26"]
+        
+      gateway_subnet:
+        name: "GatewaySubnet"
+        address_prefixes: ["10.0.2.0/27"]
+        
+      management_subnet:
+        name: "ManagementSubnet"
+        address_prefixes: ["10.0.3.0/24"]
+  
+  spoke_vnets:
+    production:
+      name: "production-vnet"
+      address_space: ["10.1.0.0/16"]
+      location: "East US"
+      environment: "Production"
+      
+    non_production:
+      name: "nonproduction-vnet"
+      address_space: ["10.2.0.0/16"]
+      location: "East US"
+      environment: "Non-Production"

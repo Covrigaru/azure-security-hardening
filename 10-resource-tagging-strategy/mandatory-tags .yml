@@ -1,0 +1,47 @@
+# Azure Resource Tagging Policy
+RequiredTags:
+  Environment:
+    allowedValues:
+      - "Production"
+      - "Development"
+      - "Testing"
+      - "Staging"
+    
+  Criticality:
+    allowedValues:
+      - "Critical"
+      - "High"
+      - "Medium"
+      - "Low"
+    
+  DataClassification:
+    allowedValues:
+      - "Confidential"
+      - "Internal"
+      - "Public"
+    
+  Owner:
+    type: "string"
+    pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+    example: "email@company.com"
+    
+  CostCenter:
+    type: "string"
+    pattern: "^CC-[A-Z0-9]{4}$"
+    example: "CC-XXXX"
+    
+  Project:
+    type: "string"
+    description: "Project name"
+    example: "ProjectName"
+    
+  Backup:
+    allowedValues:
+      - "Required"
+      - "NotRequired"
+    
+  Monitoring:
+    defaultValue: "Enabled"
+    allowedValues:
+      - "Enabled"
+      - "Disabled"

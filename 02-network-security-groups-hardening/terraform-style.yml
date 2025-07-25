@@ -1,0 +1,80 @@
+# Terraform Variables Format
+network_security_rules:
+  inbound_rules:
+    deny_internet:
+      priority: 100
+      name: "DenyAllInternetTraffic"
+      direction: "Inbound"
+      access: "Deny"
+      protocol: "*"
+      source_port_range: "*"
+      destination_port_range: "*"
+      source_address_prefix: "Internet"
+      destination_address_prefix: "*"
+      
+    allow_load_balancer:
+      priority: 110
+      name: "AllowLoadBalancer"
+      direction: "Inbound"
+      access: "Allow"
+      protocol: "Tcp"
+      source_port_range: "*"
+      destination_port_ranges: ["80", "443"]
+      source_address_prefix: "AzureLoadBalancer"
+      destination_address_prefix: "*"
+      
+    allow_management:
+      priority: 120
+      name: "AllowManagementFromJumpBox"
+      direction: "Inbound"
+      access: "Allow"
+      protocol: "Tcp"
+      source_port_range: "*"
+      destination_port_ranges: ["22", "3389"]
+      source_address_prefix: "10.1.10.0/24"
+      destination_address_prefix: "*"
+      
+    deny_all_inbound:
+      priority: 4096
+      name: "DenyAllInbound"
+      direction: "Inbound"
+      access: "Deny"
+      protocol: "*"
+      source_port_range: "*"
+      destination_port_range: "*"
+      source_address_prefix: "*"
+      destination_address_prefix: "*"
+      
+  outbound_rules:
+    allow_https:
+      priority: 100
+      name: "AllowHTTPSToInternet"
+      direction: "Outbound"
+      access: "Allow"
+      protocol: "Tcp"
+      source_port_range: "*"
+      destination_port_range: "443"
+      source_address_prefix: "*"
+      destination_address_prefix: "Internet"
+      
+    allow_internal:
+      priority: 110
+      name: "AllowInternalCommunication"
+      direction: "Outbound"
+      access: "Allow"
+      protocol: "*"
+      source_port_range: "*"
+      destination_port_range: "*"
+      source_address_prefix: "10.1.0.0/16"
+      destination_address_prefix: "10.1.0.0/16"
+      
+    deny_all_outbound:
+      priority: 4096
+      name: "DenyAllOutbound"
+      direction: "Outbound"
+      access: "Deny"
+      protocol: "*"
+      source_port_range: "*"
+      destination_port_range: "*"
+      source_address_prefix: "*"
+      destination_address_prefix: "*"

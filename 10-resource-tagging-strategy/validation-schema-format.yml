@@ -1,0 +1,73 @@
+# Tag Validation Schema
+$schema: "https://json-schema.org/draft/2020-12/schema"
+type: "object"
+title: "Azure Resource Tags Schema"
+
+properties:
+  Environment:
+    type: "string"
+    enum:
+      - "Production"
+      - "Development"
+      - "Testing"
+      - "Staging"
+    description: "The deployment environment"
+    
+  Criticality:
+    type: "string"
+    enum:
+      - "Critical"
+      - "High"
+      - "Medium"
+      - "Low"
+    description: "Business criticality level"
+    
+  DataClassification:
+    type: "string"
+    enum:
+      - "Confidential"
+      - "Internal"
+      - "Public"
+    description: "Data sensitivity classification"
+    
+  Owner:
+    type: "string"
+    format: "email"
+    description: "Resource owner email address"
+    pattern: "^[\\w\\.-]+@[\\w\\.-]+\\.\\w+$"
+    
+  CostCenter:
+    type: "string"
+    pattern: "^CC-[A-Z0-9]{4}$"
+    description: "Cost center code in format CC-XXXX"
+    
+  Project:
+    type: "string"
+    minLength: 1
+    maxLength: 50
+    description: "Project name or identifier"
+    
+  Backup:
+    type: "string"
+    enum:
+      - "Required"
+      - "NotRequired"
+    description: "Backup requirement status"
+    
+  Monitoring:
+    type: "string"
+    default: "Enabled"
+    enum:
+      - "Enabled"
+      - "Disabled"
+    description: "Monitoring enablement status"
+
+required:
+  - "Environment"
+  - "Criticality"
+  - "DataClassification"
+  - "Owner"
+  - "CostCenter"
+  - "Project"
+  - "Backup"
+  - "Monitoring"

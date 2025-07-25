@@ -1,0 +1,15 @@
+# ARM Template Parameters Format
+parameters:
+  networkSecurityGroupRules:
+    type: array
+    defaultValue:
+      - name: "DenyAllInternetTraffic"
+        priority: 100
+        direction: "Inbound"
+        access: "Deny"
+        protocol: "*"
+        sourcePortRange: "*"
+        destinationPortRange: "*"
+        sourceAddressPrefix: "Internet"
+        destinationAddressPrefix: "*"
+      # ... additional rules

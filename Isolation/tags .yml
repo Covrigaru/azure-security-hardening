@@ -1,9 +1,0 @@
-Required Tags:
-  Environment: "Production" | "Development" | "Testing" | "Staging"
-  Criticality: "Critical" | "High" | "Medium" | "Low"
-  DataClassification: "Confidential" | "Internal" | "Public"
-  Owner: "email@company.com"
-  CostCenter: "CC-XXXX"
-  Project: "ProjectName"
-  Backup: "Required" | "NotRequired"
-  Monitoring: "Enabled"

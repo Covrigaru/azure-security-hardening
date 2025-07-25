@@ -1,0 +1,26 @@
+# ARM Template Parameters
+parameters:
+  hubVNet:
+    type: object
+    defaultValue:
+      name: "hub-vnet"
+      addressSpace: "10.0.0.0/16"
+      subnets:
+        - name: "AzureFirewallSubnet"
+          addressPrefix: "10.0.1.0/26"
+        - name: "GatewaySubnet"
+          addressPrefix: "10.0.2.0/27"
+        - name: "ManagementSubnet"
+          addressPrefix: "10.0.3.0/24"
+          
+  spokeVNets:
+    type: array
+    defaultValue:
+      - name: "production-vnet"
+        displayName: "Production VNet"
+        addressSpace: "10.1.0.0/16"
+        environment: "Production"
+      - name: "nonproduction-vnet"
+        displayName: "Non-Production VNet"
+        addressSpace: "10.2.0.0/16"
+        environment: "Non-Production"

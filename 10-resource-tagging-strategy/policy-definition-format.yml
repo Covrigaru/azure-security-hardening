@@ -1,0 +1,73 @@
+# Tag Policy Definition
+tagPolicy:
+  name: "required-tags-policy"
+  description: "Enforces required tags on Azure resources"
+  
+  requiredTags:
+    - tagName: "Environment"
+      description: "Deployment environment"
+      dataType: "string"
+      allowedValues:
+        - "Production"
+        - "Development"
+        - "Testing"
+        - "Staging"
+      required: true
+      
+    - tagName: "Criticality"
+      description: "Business criticality level"
+      dataType: "string"
+      allowedValues:
+        - "Critical"
+        - "High"
+        - "Medium"
+        - "Low"
+      required: true
+      
+    - tagName: "DataClassification"
+      description: "Data sensitivity classification"
+      dataType: "string"
+      allowedValues:
+        - "Confidential"
+        - "Internal"
+        - "Public"
+      required: true
+      
+    - tagName: "Owner"
+      description: "Resource owner email"
+      dataType: "string"
+      pattern: "^[\\w\\.-]+@[\\w\\.-]+\\.\\w+$"
+      example: "email@company.com"
+      required: true
+      
+    - tagName: "CostCenter"
+      description: "Cost center code"
+      dataType: "string"
+      pattern: "^CC-[A-Z0-9]{4}$"
+      example: "CC-XXXX"
+      required: true
+      
+    - tagName: "Project"
+      description: "Project identifier"
+      dataType: "string"
+      minLength: 2
+      maxLength: 50
+      example: "ProjectName"
+      required: true
+      
+    - tagName: "Backup"
+      description: "Backup requirement"
+      dataType: "string"
+      allowedValues:
+        - "Required"
+        - "NotRequired"
+      required: true
+      
+    - tagName: "Monitoring"
+      description: "Monitoring status"
+      dataType: "string"
+      defaultValue: "Enabled"
+      allowedValues:
+        - "Enabled"
+        - "Disabled"
+      required: true

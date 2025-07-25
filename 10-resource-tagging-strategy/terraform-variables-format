@@ -1,0 +1,40 @@
+# Terraform Variables Configuration
+variable_definitions:
+  required_tags:
+    description: "Required tags for all resources"
+    type: "map(string)"
+    
+    validation:
+      environment:
+        condition: "contains(['Production', 'Development', 'Testing', 'Staging'], var.environment)"
+        error_message: "Environment must be one of: Production, Development, Testing, Staging"
+        
+      criticality:
+        condition: "contains(['Critical', 'High', 'Medium', 'Low'], var.criticality)"
+        error_message: "Criticality must be one of: Critical, High, Medium, Low"
+        
+      data_classification:
+        condition: "contains(['Confidential', 'Internal', 'Public'], var.data_classification)"
+        error_message: "DataClassification must be one of: Confidential, Internal, Public"
+        
+      owner:
+        condition: "can(regex('^[\\w\\.-]+@[\\w\\.-]+\\.\\w+$', var.owner))"
+        error_message: "Owner must be a valid email address"
+        
+      cost_center:
+        condition: "can(regex('^CC-[A-Z0-9]{4}$', var.cost_center))"
+        error_message: "CostCenter must follow format CC-XXXX"
+        
+      backup:
+        condition: "contains(['Required', 'NotRequired'], var.backup)"
+        error_message: "Backup must be either Required or NotRequired"
+
+default_values:
+  environment: "Development"
+  criticality: "Medium"
+  data_classification: "Internal"
+  owner: "team@company.com"
+  cost_center: "CC-0000"
+  project: "DefaultProject"
+  backup: "NotRequired"
+  monitoring: "Enabled"

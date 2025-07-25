@@ -1,0 +1,92 @@
+# Azure Network Security Group Configuration
+apiVersion: v1
+kind: NetworkSecurityGroup
+metadata:
+  name: web-tier-nsg
+  resourceGroup: myResourceGroup
+  
+spec:
+  securityRules:
+    inbound:
+      - name: "DenyAllInternetTraffic"
+        priority: 100
+        direction: "Inbound"
+        access: "Deny"
+        protocol: "*"
+        sourcePortRange: "*"
+        destinationPortRange: "*"
+        sourceAddressPrefix: "Internet"
+        destinationAddressPrefix: "*"
+        description: "Deny all internet traffic"
+        
+      - name: "AllowLoadBalancer"
+        priority: 110
+        direction: "Inbound"
+        access: "Allow"
+        protocol: "Tcp"
+        sourcePortRange: "*"
+        destinationPortRanges:
+          - "80"
+          - "443"
+        sourceAddressPrefix: "AzureLoadBalancer"
+        destinationAddressPrefix: "*"
+        description: "Allow traffic from Azure Load Balancer"
+        
+      - name: "AllowManagementFromJumpBox"
+        priority: 120
+        direction: "Inbound"
+        access: "Allow"
+        protocol: "Tcp"
+        sourcePortRange: "*"
+        destinationPortRanges:
+          - "22"
+          - "3389"
+        sourceAddressPrefix: "10.1.10.0/24"
+        destinationAddressPrefix: "*"
+        description: "Allow management traffic from jump box subnet"
+        
+      - name: "DenyAllInbound"
+        priority: 4096
+        direction: "Inbound"
+        access: "Deny"
+        protocol: "*"
+        sourcePortRange: "*"
+        destinationPortRange: "*"
+        sourceAddressPrefix: "*"
+        destinationAddressPrefix: "*"
+        description: "Deny all remaining inbound traffic"
+        
+    outbound:
+      - name: "AllowHTTPSToInternet"
+        priority: 100
+        direction: "Outbound"
+        access: "Allow"
+        protocol: "Tcp"
+        sourcePortRange: "*"
+        destinationPortRange: "443"
+        sourceAddressPrefix: "*"
+        destinationAddressPrefix: "Internet"
+        description: "Allow HTTPS traffic to internet"
+        
+      - name: "AllowInternalCommunication"
+        priority: 110
+        direction: "Outbound"
+        access: "Allow"
+        protocol: "*"
+        sourcePortRange: "*"
+        destinationPortRange: "*"
+        sourceAddressPrefix: "10.1.0.0/16"
+        destinationAddressPrefix: "10.1.0.0/16"
+        description: "Allow internal VNet communication"
+        
+      - name: "DenyAllOutbound"
+        priority: 4096
+        direction: "Outbound"
+        access: "Deny"
+        protocol: "*"
+        sourcePortRange: "*"
+        destinationPortRange: "*"
+        sourceAddressPrefix: "*"
+        destinationAddressPrefix: "*"
+        description: "Deny all remaining outbound traffic"
+        

@@ -1,0 +1,64 @@
+# Simple NSG Rules Configuration
+nsg_config:
+  name: "web-tier-nsg"
+  location: "East US"
+  
+  rules:
+    inbound:
+      - rule_name: "deny_internet_traffic"
+        priority: 100
+        source: "Internet"
+        destination: "Any"
+        ports: "Any"
+        action: "Deny"
+        protocol: "Any"
+        
+      - rule_name: "allow_load_balancer"
+        priority: 110
+        source: "AzureLoadBalancer"
+        destination: "Any"
+        ports: ["80", "443"]
+        action: "Allow"
+        protocol: "Tcp"
+        
+      - rule_name: "allow_management"
+        priority: 120
+        source: "10.1.10.0/24"
+        destination: "Any"
+        ports: ["22", "3389"]
+        action: "Allow"
+        protocol: "Tcp"
+        description: "Management subnet access"
+        
+      - rule_name: "deny_all_inbound"
+        priority: 4096
+        source: "Any"
+        destination: "Any"
+        ports: "Any"
+        action: "Deny"
+        protocol: "Any"
+        
+    outbound:
+      - rule_name: "allow_https_internet"
+        priority: 100
+        source: "Any"
+        destination: "Internet"
+        ports: ["443"]
+        action: "Allow"
+        protocol: "Tcp"
+        
+      - rule_name: "allow_internal_vnet"
+        priority: 110
+        source: "10.1.0.0/16"
+        destination: "10.1.0.0/16"
+        ports: "Any"
+        action: "Allow"
+        protocol: "Any"
+        
+      - rule_name: "deny_all_outbound"
+        priority: 4096
+        source: "Any"
+        destination: "Any"
+        ports: "Any"
+        action: "Deny"
+        protocol: "Any"

@@ -1,0 +1,47 @@
+# Azure Hub-Spoke Network Architecture
+NetworkArchitecture:
+  type: "Hub-Spoke"
+  
+  hub:
+    name: "hub-vnet"
+    location: "East US"
+    addressSpace: "10.0.0.0/16"
+    subnets:
+      - name: "AzureFirewallSubnet"
+        addressPrefix: "10.0.1.0/26"
+        purpose: "Azure Firewall deployment"
+        
+      - name: "GatewaySubnet"
+        addressPrefix: "10.0.2.0/27"
+        purpose: "VPN Gateway deployment"
+        
+      - name: "ManagementSubnet"
+        addressPrefix: "10.0.3.0/24"
+        purpose: "Management and monitoring resources"
+        
+  spokes:
+    - name: "production-vnet"
+      displayName: "Production VNet"
+      location: "East US"
+      addressSpace: "10.1.0.0/16"
+      environment: "Production"
+      subnets:
+        - name: "web-subnet"
+          addressPrefix: "10.1.1.0/24"
+        - name: "app-subnet"
+          addressPrefix: "10.1.2.0/24"
+        - name: "data-subnet"
+          addressPrefix: "10.1.3.0/24"
+          
+    - name: "nonproduction-vnet"
+      displayName: "Non-Production VNet"
+      location: "East US"
+      addressSpace: "10.2.0.0/16"
+      environment: "Non-Production"
+      subnets:
+        - name: "dev-subnet"
+          addressPrefix: "10.2.1.0/24"
+        - name: "test-subnet"
+          addressPrefix: "10.2.2.0/24"
+        - name: "staging-subnet"
+          addressPrefix: "10.2.3.0/24"

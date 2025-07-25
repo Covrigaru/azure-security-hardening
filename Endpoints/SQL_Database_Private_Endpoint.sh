@@ -1,3 +1,4 @@
+#!/bin/bash
 # Create private endpoint for SQL Database
 az network private-endpoint create \
   --resource-group prod-data-rg \

@@ -1,3 +1,4 @@
+#!/bin/bash
 # Enable JIT access policy
 az security jit-policy create \
   --resource-group prod-compute-rg \

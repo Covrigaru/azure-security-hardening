@@ -1,3 +1,4 @@
+#!/bin/bash
 # Enable Network Watcher
 az network watcher configure \
   --resource-group NetworkWatcherRG \

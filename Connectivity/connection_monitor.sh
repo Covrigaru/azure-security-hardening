@@ -1,3 +1,4 @@
+#!/bin/bash
 # Create connection monitor
 az network watcher connection-monitor create \
   --resource-group NetworkWatcherRG \

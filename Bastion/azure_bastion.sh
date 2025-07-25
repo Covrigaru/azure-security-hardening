@@ -1,3 +1,4 @@
+#!/bin/bash
 # Create Bastion subnet
 az network vnet subnet create \
   --resource-group prod-network-rg \

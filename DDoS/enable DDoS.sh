@@ -1,3 +1,4 @@
+#!/bin/bash
 # Create DDoS protection plan
 az network ddos-protection create \
   --resource-group security-rg \

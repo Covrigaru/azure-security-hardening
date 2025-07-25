@@ -1,3 +1,4 @@
+#!/bin/bash
 # Create Log Analytics workspace
 az monitor log-analytics workspace create \
   --resource-group security-rg \

@@ -1,3 +1,4 @@
+#!/bin/bash
 # Create Azure Firewall
 az network firewall create \
   --resource-group hub-network-rg \

@@ -1,3 +1,4 @@
+#!/bin/bash
 # Create Production VNet
 az network vnet create \
   --resource-group prod-network-rg \

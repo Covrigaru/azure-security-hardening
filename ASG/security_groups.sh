@@ -1,3 +1,4 @@
+#!/bin/bash
 # Create ASGs for different tiers
 az network asg create \
   --resource-group prod-network-rg \

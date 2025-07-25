@@ -1,3 +1,4 @@
+#!/bin/bash
 # Create Application Gateway with WAF
 az network application-gateway create \
   --resource-group prod-network-rg \

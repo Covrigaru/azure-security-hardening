@@ -1,3 +1,4 @@
+#!/bin/bash
 # Create NSG
 az network nsg create \
   --resource-group prod-network-rg \

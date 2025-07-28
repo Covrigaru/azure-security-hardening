@@ -1,4 +1,6 @@
 Main Pipeline Features:
+
+
 🔄 Workflow Triggers
 
 Push/PR triggers on main/develop branches
@@ -27,3 +29,23 @@ Infrastructure drift detection for compliance
 
 Required GitHub Secrets:
 Add these secrets to your GitHub repository: update pipeline/secrets.yml
+
+🚨 Customization Required Before Deployment:
+
+What You Need to Customize:
+Resource Group Names
+Replace any generic resource group names (e.g., rg-template, example-rg) with the actual names used in your Azure subscription.
+
+Location/Region
+Ensure the region (e.g., eastus, westeurope) matches the geographic location where your resources should reside.
+
+IP Addresses
+Update placeholder IP ranges (e.g., 0.0.0.0/0, 10.0.0.0/24) with the correct, secure IP ranges needed for your environment.
+
+Resource Names
+Replace any generic names (e.g., vnet-name, vm-name, storage-name) with names that conform to your organization's naming convention and don't conflict with existing resources.
+
+Subscription ID and Tenant ID
+Confirm that the pipeline is targeting the correct subscription and tenant, especially in multi-subscription environments.
+
+💡💡  Double-check all hardcoded values in ARM/Bicep templates or parameters files, and make sure you do not deploy using default values in a production environment.

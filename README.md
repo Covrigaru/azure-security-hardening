@@ -12,25 +12,30 @@ Security Benefits Achieved:
 
 
 Implementation Checklist:
-Phase 1: Network Foundation: 
+
+Phase 1: Network Foundation:
+
   ✅ Create separate VNets for production and non-production
   ✅ Implement NSG rules with default deny
   ✅ Deploy Azure Bastion for secure access
   ✅ Configure basic firewall rules
 
-Phase 2: Advanced Security: 
+Phase 2: Advanced Security:
+
   ✅ Deploy Azure Firewall in hub-spoke topology
   ✅ Implement private endpoints for PaaS services
   ✅ Enable DDoS protection
   ✅ Configure WAF policies
 
-Phase 3: Monitoring & Compliance: 
+Phase 3: Monitoring & Compliance:
+
   ✅ Enable Security Center and Sentinel
   ✅ Configure NSG flow logs
   ✅ Implement JIT access
   ✅ Set up alerting and monitoring
 
-Phase 4: Governance: 
+Phase 4: Governance:
+ 
   ✅ Implement Azure Policy for compliance
   ✅ Configure resource tagging standards
   ✅ Set up automated compliance scanning
